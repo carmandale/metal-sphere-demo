@@ -1,10 +1,10 @@
 # Procedural Shader Integration – RealityKit PRD  
-*Version 1.0* — *2024-06-17*
+*Version 1.1* — *2024-06-18*
 
 ---
 
 ## 1. Objective  
-Enable the existing “Effect Sphere” and “Tunnel” procedural visual effects (originally written as fragment shaders) to run inside a RealityKit-based app.  The effects will be computed by Metal **compute** kernels that render into `LowLevelTexture`s; those textures are then sampled by standard RealityKit materials applied to sphere meshes.
+Enable the existing "Effect Sphere" and "Tunnel" procedural visual effects (originally written as fragment shaders) to run inside a RealityKit-based app.  The effects will be computed by Metal **compute** kernels that render into `LowLevelTexture`s; those textures are then sampled by standard RealityKit materials applied to sphere meshes.
 
 ---
 
@@ -12,7 +12,7 @@ Enable the existing “Effect Sphere” and “Tunnel” procedural visual effec
 | ID | Item | Notes |
 |----|------|-------|
 | D-1 | `ProceduralKernels.metal` | Contains `effectSphereKernel` and `tunnelKernel` compute functions (already supplied). |
-| D-2 | Swift helper `ProceduralTextureRenderer.swift` | Builds compute pipelines, owns one `LowLevelTexture` per effect, and re-renders each frame. |
+| D-2 | Swift helper `ProceduralTextureRenderer.swift` | Conforms to `ComputeSystem`, builds compute pipelines, owns one `LowLevelTexture` per effect, and re-renders each frame. |
 | D-3 | Example RealityKit scene (`ProceduralDemo`) | Shows two spheres with the animated textures applied. |
 | D-4 | README integration guide | Step-by-step for other teams. |
 
@@ -48,42 +48,63 @@ kernel void tunnelKernel(texture2d<float, access::write> outTex,
 
 ### 4.2 Swift Helper – `ProceduralTextureRenderer` (D-2)  
 Responsibilities  
-1. Create `LowLevelTexture` (format `.rgba32Float`, user-configurable size).  
-2. Build one `MTLComputePipelineState` per kernel on first use.  
-3. On every frame (`SceneUpdates.update(…)`)  
-   * Encode kernel, passing `time`.  
-   * Dispatch threads:  
-     ```swift
-     let tg = MTLSize(width:16, height:16, depth:1)
-     let grid = MTLSize(width: tex.width, height: tex.height, depth: 1)
-     enc.dispatchThreads(grid, threadsPerThreadgroup: tg)
-     ```  
-   * Convert to `MaterialTexture` and assign to the sphere’s material.
-
-4. Expose simple API:
+1. Create one `LowLevelTexture` (default format `.rgba16Float`, resolution configurable).  
+2. Build a single `MTLComputePipelineState` for the chosen kernel.  
+3. Conform to **`ComputeSystem`** so RealityKit's `ComputeDispatchSystem` drives the compute work each frame.  
+4. In `update(computeContext:)`  
+   * Advance `time` uniform.  
+   * Encode kernel, bind texture + uniforms.  
+   * `dispatchThreadgroups()` with **16 × 16** work-groups.  
+5. Expose the generated texture as a `TextureResource` for direct use in `UnlitMaterial`.
 
 ```swift
 enum ProceduralEffect { case effectSphere, tunnel }
 
-final class ProceduralTextureRenderer {
-    init(device: MTLDevice,
-         effect: ProceduralEffect,
-         resolution: Int = 512)
-
-    func update(time: Float, commandBuffer: MTLCommandBuffer)
-    var texture: MaterialTexture { get }        // bind to RealityKit material
+@MainActor
+final class ProceduralTextureRenderer: ComputeSystem {
+    init(effect: ProceduralEffect, resolution: Int = 512) { /* … */ }
+    var textureResource: TextureResource { /* … */ }
+    func update(computeContext: ComputeUpdateContext) { /* … */ }
 }
 ```
 
+Note: The helper uses the global `metalDevice` and therefore requires no explicit device argument.
+
 ### 4.3 RealityKit Scene Example (D-3)  
-1. Create three `ModelEntity`s with `MeshResource.generateSphere(radius:)`.  
-2. Each has an `UnlitMaterial` (or `SimpleMaterial`) whose base‐color texture is `renderer.texture`.  
-3. Position the spheres in front of the camera; add to `AnchorEntity(.camera)`.
+1. Register the compute dispatch system **once** per scene:
+
+```swift
+scene.addSystem(ComputeDispatchSystem.init) // RealityKit 2.5+
+```
+
+2. For each effect:
+
+```swift
+let renderer = ProceduralTextureRenderer(effect: .effectSphere)
+
+// Driver entity – only purpose is to host the ComputeSystemComponent
+let driver = Entity()
+driver.components.set(ComputeSystemComponent(computeSystem: renderer))
+scene.addAnchor(driver)
+
+// Visible sphere
+let sphere = ModelEntity(mesh: .generateSphere(radius: 0.5))
+var mat = UnlitMaterial(texture: renderer.textureResource)
+sphere.model?.materials = [mat]
+sphere.position = [0, 0, -2]
+scene.addAnchor(AnchorEntity(world: .zero, children: [sphere]))
+```
 
 ### 4.4 Performance  
 * Workgroup size 16 × 16 tested fastest on AVP sim & device.  
 * With resolution 512² both kernels run < 0.2 ms on M2.  
 * Provide option to downscale on lower-end devices.
+
+### 4.5 Kernel Tweaks for Modern Metal
+
+• Replace deprecated `M_PI` with your own constant (`constant float PI = 3.14159…`).  
+• `texture2d::get_extent()` is gone; use `uint2(tex.get_width(), tex.get_height())` instead.  
+These fixes are already applied in the provided `ProceduralKernels.metal`.
 
 ---
 
@@ -124,7 +145,7 @@ arView.scene.subscribe(to: SceneEvents.Update.self) { event in
 | Idea | Notes |
 |------|-------|
 | Parameter uniforms | hue shift, turbulence scale, etc. via `Params`. |
-| Additional kernels | “Constellation”, “Warp”, etc. same pattern. |
+| Additional kernels | "Constellation", "Warp", etc. same pattern. |
 | Texture array atlas | switch effects without new textures. |
 | Metal binary archive | pre-compile pipelines for faster launch. |
 

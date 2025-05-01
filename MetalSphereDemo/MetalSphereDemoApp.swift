@@ -12,6 +12,12 @@ struct MetalSphereDemoApp: App {
 
     @State private var appModel = AppModel()
 
+    init() {
+        print("MetalSphereDemoApp init")
+        ComputeSystemComponent.registerComponent()
+        ComputeDispatchSystem.registerSystem()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

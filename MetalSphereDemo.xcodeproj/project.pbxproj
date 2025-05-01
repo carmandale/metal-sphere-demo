@@ -30,6 +30,7 @@
 		88E6BBED2DBCF1D9007C609A /* Exceptions for "MetalSphereDemo" folder in "MetalSphereDemo" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				"Compute/PRD-MetalShaders.md",
 				Info.plist,
 			);
 			target = 88E6BBCE2DBCF1D8007C609A /* MetalSphereDemo */;

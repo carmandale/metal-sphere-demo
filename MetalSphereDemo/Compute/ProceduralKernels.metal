@@ -6,10 +6,13 @@ struct Params {
     float time;
 };
 
+// Pi constant (Metal doesn't guarantee M_PI)
+constant float PI = 3.14159265358979323846;
+
 // Helper: spherical direction from UV on equirect texture
 static inline float3 directionFromUV(float2 uv) {
-    float phi = uv.y * M_PI;          // 0..pi
-    float theta = uv.x * 2.0f * M_PI; // 0..2pi
+    float phi = uv.y * PI;          // 0..pi
+    float theta = uv.x * 2.0f * PI; // 0..2pi
     float3 dir;
     dir.x = sin(phi) * sin(theta);
     dir.y = cos(phi);
@@ -43,7 +46,7 @@ kernel void effectSphereKernel(texture2d<float, access::write> outTex [[texture(
                                constant Params& params [[buffer(0)]],
                                uint2 gid [[thread_position_in_grid]])
 {
-    uint2 size = outTex.get_extent();
+    uint2 size = uint2(outTex.get_width(), outTex.get_height());
     if(gid.x >= size.x || gid.y >= size.y) return;
     float2 uv = (float2(gid) + 0.5)/float2(size);
     float3 dir = directionFromUV(uv);
@@ -81,7 +84,7 @@ kernel void tunnelKernel(texture2d<float, access::write> outTex [[texture(0)]],
                          constant Params& params [[buffer(0)]],
                          uint2 gid [[thread_position_in_grid]])
 {
-    uint2 size = outTex.get_extent();
+    uint2 size = uint2(outTex.get_width(), outTex.get_height());
     if(gid.x >= size.x || gid.y >= size.y) return;
     float2 uv = (float2(gid) + 0.5)/float2(size);
     float3 dir = directionFromUV(uv);

@@ -42,7 +42,7 @@ vertex VertexOut vertex_main(uint vertexID [[vertex_id]]) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fragment: “Heavenly 2” port of the XorDev ray-march loop
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────/Users/dalecarman/Groove Jones Dropbox/Dale Carman/Projects/Metal/MetalSphereDemo/MetalSphereDemo/Compute/Heavenly.metal
 fragment float4 fragment_main(VertexOut in            [[stage_in]],
                               constant Uniforms& uni   [[buffer(0)]]) {
     // normalize to [-1…1]
