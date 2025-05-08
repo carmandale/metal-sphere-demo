@@ -4,6 +4,7 @@ using namespace metal;
 // Parameters passed from Swift each frame
 struct Params {
     float time;
+    float intensity; // HDR gain 1..10
 };
 
 // Pi constant (Metal doesn't guarantee M_PI)
@@ -50,7 +51,7 @@ kernel void effectSphereKernel(texture2d<float, access::write> outTex [[texture(
     if(gid.x >= size.x || gid.y >= size.y) return;
     float2 uv = (float2(gid) + 0.5)/float2(size);
     float3 dir = directionFromUV(uv);
-    float4 col = effectSphereColor(dir, params.time);
+    float4 col = effectSphereColor(dir, params.time) * params.intensity;
     outTex.write(col, gid);
 }
 
@@ -88,6 +89,6 @@ kernel void tunnelKernel(texture2d<float, access::write> outTex [[texture(0)]],
     if(gid.x >= size.x || gid.y >= size.y) return;
     float2 uv = (float2(gid) + 0.5)/float2(size);
     float3 dir = directionFromUV(uv);
-    float4 col = tunnelColor(dir, params.time);
+    float4 col = tunnelColor(dir, params.time) * params.intensity;
     outTex.write(col, gid);
 } 

@@ -26,7 +26,7 @@ struct MetalSphereDemoApp: App {
         .windowStyle(.volumetric)
 
         ImmersiveSpace(id: appModel.immersiveSpaceID) {
-            ImmersiveView()
+            HeavenlyImmersiveView()
                 .environment(appModel)
                 .onAppear {
                     appModel.immersiveSpaceState = .open

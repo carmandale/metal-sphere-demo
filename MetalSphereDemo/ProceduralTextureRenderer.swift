@@ -2,7 +2,7 @@ import RealityKit
 import Metal
 
 /// Swift-side mirror of the Metal `Params` struct.
-private struct Params { var time: Float }
+private struct Params { var time: Float; var intensity: Float }
 
 /// Which kernel to run.
 enum ProceduralEffect {
@@ -26,7 +26,7 @@ final class ProceduralTextureRenderer: ComputeSystem {
     let texture: LowLevelTexture
     private let pipeline: MTLComputePipelineState
     private let uniformBuffer: MTLBuffer
-    private var uniforms = Params(time: 0)
+    private var uniforms = Params(time: 0, intensity: 2.0)
 
     private let threadsPerTG = MTLSize(width: 16, height: 16, depth: 1)
     private let threadgroups : MTLSize
@@ -72,5 +72,10 @@ final class ProceduralTextureRenderer: ComputeSystem {
         encoder.setTexture(writeTex, index: 0)
         encoder.setBuffer(uniformBuffer, offset: 0, index: 0)
         encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerTG)
+    }
+
+    // MARK: Public API
+    func setIntensity(_ value: Float) {
+        uniforms.intensity = value
     }
 } 
